@@ -2,16 +2,18 @@
 
 # **LiveStar: Live Streaming Assistant for Real-World Online Video Understanding**
 
-[\[🤖 HF Model (Anonymous)\]](https://huggingface.co/Anonymous4LiveStar/LiveStar_8B) [\[🤗 HF Dataset (Anonymous)\]](https://huggingface.co/datasets/Anonymous4LiveStar/OmniStar-RNG) [\[🎬 Base Model\]](https://huggingface.co/Anonymous4LiveStar/LiveStar_InternVideo_8B)
+[\[📖 Paper\]](https://arxiv.org/abs/2511.05299) [\[🤖 HF Model\]](https://huggingface.co/yzy666/LiveStar_8B) [\[🤗 HF Dataset\]](https://huggingface.co/datasets/yzy666/OmniStar-RNG) [\[🎬 Base Model\]](https://huggingface.co/yzy666/LiveStar_InternVideo_8B) [\[📄 中文解读\]](https://mp.weixin.qq.com/s/GdkpgCxrAlbVrN6AAQn74A) 
 
 </div>
 
-This is the **anonymous repository** for the paper ***LiveStar: Live-Streaming Assistant for Real-World Online Video Understanding***, providing code, data, and pipeline to support the LiveStar model and the OmniStar dataset introduced in the work. 🚀🚀🚀
+This is the **code repository** for the paper ***LiveStar: Live-Streaming Assistant for Real-World Online Video Understanding***, providing code, data, and pipeline to support the LiveStar model and the OmniStar dataset introduced in the work. 🚀🚀🚀
 
 
 ## News & Updates 🚀  
+- `2025-09-19`:  
+  🔥 **Paper Accepted**: Our work has been accepted to NeurIPS 2025! The [arXiv](https://arxiv.org/abs/2511.05299) version is now available — try our LiveStar model for streaming inference today!
 - `2025-05-27`:  
-  🔥 **Anonymous Release of LiveStar**: We've launched the [LiveStar-8B model](https://huggingface.co/Anonymous4LiveStar/LiveStar_8B) on Hugging Face for immediate online inference!  
+  🔥 **LiveStar Released**: We've launched the [LiveStar-8B model](https://huggingface.co/yzy666/LiveStar_8B) on Hugging Face for immediate online inference!  
   - **Current Features**:  
     ✔️ Full model weights accessible  
     ✔️ Basic inference pipeline integration  
@@ -27,7 +29,7 @@ This is the **anonymous repository** for the paper ***LiveStar: Live-Streaming A
 
 ### **Abstract**
 
-Despite significant progress in Video Large Language Models (Video-LLMs) for offline video understanding, existing online Video-LLMs typically struggle to simultaneously process continuous frame-by-frame inputs and determine optimal response timing, often compromising real-time responsiveness and narrative coherence. To address these limitations, we introduce LiveStar, a pioneering live streaming assistant that achieves always-on proactive responses through adaptive streaming decoding. Specifically, LiveStar incorporates: (1) a training strategy enabling incremental video-language alignment for variable-length video streams, preserving temporal consistency across dynamically evolving frame sequences; (2) a response-silence decoding framework that determines optimal proactive response timing via a single forward pass verification; (3) memory-aware acceleration via peak-end memory compression for online inference on 10+ minute videos, combined with streaming key-value cache to achieve 1.53× faster inference. We also construct an OmniStar dataset, a comprehensive dataset for training and benchmarking that encompasses 15 diverse real-world scenarios and 5 evaluation tasks for online video understanding. Extensive experiments across three benchmarks demonstrate LiveStar's state-of-the-art performance, achieving an average 19.5% improvement in semantic correctness with 18.1% reduced timing difference compared to existing online Video-LLMs, while improving FPS by 12.0% across all five OmniStar tasks. Our model and dataset can be accessed at https://anonymous.4open.science/r/LiveStar-5272.
+Despite significant progress in Video Large Language Models (Video-LLMs) for offline video understanding, existing online Video-LLMs typically struggle to simultaneously process continuous frame-by-frame inputs and determine optimal response timing, often compromising real-time responsiveness and narrative coherence. To address these limitations, we introduce LiveStar, a pioneering live streaming assistant that achieves always-on proactive responses through adaptive streaming decoding. Specifically, LiveStar incorporates: (1) a training strategy enabling incremental video-language alignment for variable-length video streams, preserving temporal consistency across dynamically evolving frame sequences; (2) a response-silence decoding framework that determines optimal proactive response timing via a single forward pass verification; (3) memory-aware acceleration via peak-end memory compression for online inference on 10+ minute videos, combined with streaming key-value cache to achieve 1.53× faster inference. We also construct an OmniStar dataset, a comprehensive dataset for training and benchmarking that encompasses 15 diverse real-world scenarios and 5 evaluation tasks for online video understanding. Extensive experiments across three benchmarks demonstrate LiveStar's state-of-the-art performance, achieving an average 19.5% improvement in semantic correctness with 18.1% reduced timing difference compared to existing online Video-LLMs, while improving FPS by 12.0% across all five OmniStar tasks.
 
 ## **Getting Started**
 
@@ -35,7 +37,13 @@ This guide provides step-by-step instructions to set up the LiveStar framework, 
 
 ### **Installation**
 
-1. Clone the repository (Click `Download file`)
+1. Clone the repository
+
+```sh
+git clone https://github.com/sotayang/LiveStar.git
+cd LiveStar
+```
+
 2. Install Python dependencies (Ensure you have Python version >= 3.9 installed). For GPU support, CUDA 12.2 or compatible drivers are required.
 ```bash
 conda create -n LiveStar -y python=3.9.21
@@ -44,7 +52,7 @@ conda install -y -c pytorch pytorch=2.5.1 torchvision=0.10.1
 pip install transformers==4.37.2 opencv-python==4.11.0.84 imageio==2.37.0 decord==0.6.0 gradio==4.44.1
 pip install flash-attn --no-build-isolation
 ```
-Alternative: Install via requirements.txt (recommended):
+Alternative: Install via requirements.txt (**recommended**):
 ```bash
 pip install -r requirements.txt
 ```
@@ -56,7 +64,7 @@ pip install -r requirements.txt
 (1) Download the LiveStar-8B model from Hugging Face:
 
 ```Bash
-git clone https://huggingface.co/Anonymous4LiveStar/LiveStar_8B
+hf download yzy666/LiveStar_8B --local-dir ./LiveStar_8B
 ```
 
 (2) Move model weights to the inference directory:
@@ -70,7 +78,7 @@ mv LiveStar_8B/*.safetensors inference/
 (1) Download the base pre-trained model:
 
 ```bash
-git clone https://huggingface.co/Anonymous4LiveStar/LiveStar_InternVideo_8B
+hf download yzy666/LiveStar_InternVideo_8B --local-dir ./LiveStar_InternVideo_8B
 ```
 
 (2) Prepare weights for fine-tuning:
@@ -80,62 +88,62 @@ mv LiveStar_InternVideo_8B/*.safetensors inference/
 
 ### **Data Preparation**
 
-(1) Download the OmniStar dataset from Hugging Face (We will open source it after the review process is completed):
-
-
+(1) Download the OmniStar dataset from Hugging Face:
 
 ```bash
-git clone https://huggingface.co/datasets/XXX/OmniStar
+hf download yzy666/OmniStar-RNG --local-dir ./OmniStar-RNG --repo-type=dataset
 ```
 
-*For review purposes only*: You may examine sample annotations from the OmniStar-RNG subset:  
-
-```bash
-git clone https://huggingface.co/datasets/Anonymous4LiveStar/OmniStar-RNG
-```
 
 (2) Navigate to the dataset directory:
 
-
-
 ```bash
-cd OmniStar
+cd OmniStar-RNG
 ```
 
+**Note:** Steps (3)-(5) are **deprecated** as the extracted video files are already available in the `videos` directory.
+<details><summary>Deprecated Steps (3)-(5) - Click to view</summary>
+  (3) Concatenate the split files:
 
-(3) Concatenate the split files:
+  Use the cat command to concatenate all the split files into a single file. The split files are named from allVideos.part_aa to allVideos.part_ch, you can use the following command:
 
-Use the cat command to concatenate all the split files into a single file. The split files are named from allVideos.part_aa to allVideos.part_ch, you can use the following command:
+  ```Bash
+  cat allVideos_tar_sep/allVideos.part_* > allVideo.tar.gz
+  ```
+
+  (4) Verify the integrity of the file (optional):
+
+  Use the md5sum command to compute the checksum of the concatenated file and compare it with the provided checksum 43d6777701f8bfbfcc7854304245cc2c:
+
+  ```Bash
+  md5sum allVideo.tar.gz
+  ```
+
+  The output should look like this:
+
+  ```Bash
+  43d6777701f8bfbfcc7854304245cc2c  allVideo.tar.gz
+  ```
+
+  If the checksum matches 43d6777701f8bfbfcc7854304245cc2c, the file is intact and correct.
+
+  (5) Extract the concatenated file:
+
+  Use the tar command to extract the contents of allVideo.tar.gz:
+
+  ```Bash
+  tar -xzvf allVideo.tar.gz
+  ```
+</details>
+
+(6) Extract frames from videos by running the following command:
 
 ```Bash
-cat allVideos_tar_sep/allVideos.part_* > allVideo.tar.gz
+python utils/extract_video_frame.py --data_dir ./videos --output_dir ./video_frames
 ```
 
-(4) Verify the integrity of the file (optional):
 
-Use the md5sum command to compute the checksum of the concatenated file and compare it with the provided checksum 43d6777701f8bfbfcc7854304245cc2c:
-
-```Bash
-md5sum allVideo.tar.gz
-```
-
-The output should look like this:
-
-```Bash
-43d6777701f8bfbfcc7854304245cc2c  allVideo.tar.gz
-```
-
-If the checksum matches 43d6777701f8bfbfcc7854304245cc2c, the file is intact and correct.
-
-(5) Extract the concatenated file:
-
-Use the tar command to extract the contents of allVideo.tar.gz:
-
-```Bash
-tar -xzvf allVideo.tar.gz
-```
-
-After completing these steps, you should see the extracted video files in the current directory.
+After completing these steps, you should see the extracted video and frame files in the OmniStar-RNG directory.
 
 ## **Inference**
 
@@ -170,7 +178,7 @@ To run an inference with the LiveStar model, follow these steps:
 
 
 ### **2. Fine-tune the Pre-trained Model**
-You can fine-tune the [LiveStar-8B](https://huggingface.co/Anonymous4LiveStar/LiveStar_8B) model directly (recommended), or start from the base [LiveStar-InternVideo-8B](https://huggingface.co/Anonymous4LiveStar/LiveStar_InternVideo_8B) model for full SFT training. You may choose to fine-tune the model using either the full-parameter fine-tuning script or the lightweight LoRA adapter depending on your available GPU resources.
+You can fine-tune the [LiveStar-8B](https://huggingface.co/yzy666/LiveStar_8B) model directly (recommended), or start from the base [LiveStar-InternVideo-8B](https://huggingface.co/yzy666/LiveStar_InternVideo_8B) model for full SFT training. You may choose to fine-tune the model using either the full-parameter fine-tuning script or the lightweight LoRA adapter depending on your available GPU resources.
 
 
 Before starting fine-tuning, make sure to set the `--meta_path` argument to the JSON meta file you created in the previous step.  
@@ -192,6 +200,7 @@ GPUS=2 PER_DEVICE_BATCH_SIZE=2 sh shell/scripts/LiveStar-8B_lora.sh
 ```
 
 ## **OmniStar (Coming Soon)**
+<details> <summary>Annotation and Evaluation</summary>
 
 This section provides instructions for reproducing the annotation and evaluation of OmniStar.
 
@@ -226,3 +235,4 @@ python utils/extract_video_frame.py --data_dir allVideo --output_dir allVideo_fr
 
 ![RNG](./assets/images/RNG_case.png)
 
+</details>
