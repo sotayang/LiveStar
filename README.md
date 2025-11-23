@@ -95,10 +95,16 @@ hf download yzy666/OmniStar-RNG --local-dir ./OmniStar-RNG --repo-type=dataset
 ```
 
 
-(2) Navigate to the dataset directory:
+(2)  Merge the raw video folders:
 
 ```bash
+# Navigate to the dataset directory
 cd OmniStar-RNG
+```
+Since Hugging Face repositories have a limit of 10,000 files per folder, the videos are split into two directories: `videos` (9,995 files) and `videos_2` (142 files), totaling 10,137 files.
+
+```bash
+mv videos_2/* videos/
 ```
 
 **Note:** Steps (3)-(5) are **deprecated** as the extracted video files are already available in the `videos` directory.
@@ -236,3 +242,16 @@ python utils/extract_video_frame.py --data_dir allVideo --output_dir allVideo_fr
 ![RNG](./assets/images/RNG_case.png)
 
 </details>
+
+## **Citation**
+
+If you find our data useful, please consider citing our work!
+
+```BibTeX
+@article{yang2025livestar,
+  title={LiveStar: Live Streaming Assistant for Real-World Online Video Understanding},
+  author={Yang, Zhenyu and Zhang, Kairui and Hu, Yuhang and Wang, Bing and Qian, Shengsheng and Wen, Bin and Yang, Fan and Gao, Tingting and Dong, Weiming and Xu, Changsheng},
+  journal={arXiv preprint arXiv:2511.05299},
+  year={2025}
+}
+```
