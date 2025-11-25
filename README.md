@@ -243,6 +243,13 @@ python utils/extract_video_frame.py --data_dir allVideo --output_dir allVideo_fr
 
 </details>
 
+## **Acknowledgment**
+We would like to extend our sincere gratitude to the following projects, which were instrumental to this work:
+
+* [InternVL](https://github.com/OpenGVLab/InternVL): For providing the powerful training codebase that served as the foundation for our implementation.
+
+* [InternVideo](https://github.com/OpenGVLab/InternVideo): For their outstanding video foundation models, which significantly enhanced our capabilities.
+
 ## **Citation**
 
 If you find our data useful, please consider citing our work!
