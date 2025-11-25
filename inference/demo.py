@@ -10,13 +10,33 @@ from torchvision.transforms.functional import InterpolationMode
 from transformers import AutoModel, AutoTokenizer
 
 # model setting
-model_path = 'LiveStar/inference'
+model_path = './' # Your model path
 
 tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
 model = AutoModel.from_pretrained(model_path, trust_remote_code=True).half().cuda().to(torch.bfloat16)
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
+
+def compute_avg_perplexity(model, tokenizer, pixel_values, question, generation_config, 
+                            num_patches_list, history, check_answer=None, self_check=False, num_runs=10):
+    total_perplexity = 0
+    for _ in range(num_runs):
+        perplexity, _ = model.chat(
+            tokenizer, 
+            pixel_values, 
+            question, 
+            generation_config, 
+            num_patches_list=num_patches_list[:len(pixel_values)], 
+            history=history, 
+            return_history=False, 
+            check_answer=check_answer,
+            self_check=self_check
+        )
+        total_perplexity += perplexity
+        # print(perplexity)
+    return total_perplexity / num_runs
+
 
 def build_transform(input_size):
     MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
@@ -161,9 +181,11 @@ generation_config = dict(
     repetition_penalty = 1.05,
 )
 
-video_path = "your_video.mp4" # ../assets/videos/9Uly5zVvl3Q.mp4
+video_path = "../assets/videos/HPtIGhOsViM.mp4" # ../assets/videos/_FaBKa8rH5s.mp4
 num_segments=128
-decode_factor=1.03
+decode_factor=1.06
+check_len = 1000
+num_runs = 5 # Low for speed, high for stability
 
 with torch.no_grad():
     pixel_values, num_patches_list = load_video(video_path, num_segments=num_segments, max_num=1, get_frame_by_duration=True, sample_fps=1)
@@ -179,7 +201,6 @@ with torch.no_grad():
                 "each frame's content in real-time while dynamically generating concise descriptions. "
                 "Use transitional phrases to maintain textual coherence and avoid repeating already described content.\n"
             )
-            # streaming_question = ""
             question = task_prompt + video_frame
             
             output_last, chat_history, past_key_values = model.chat(
@@ -192,16 +213,16 @@ with torch.no_grad():
                 return_history=True,
             )
             
-            output_perplexity, _ = model.chat(
-                tokenizer, 
-                pixel_values[:i+batch_frame, ...], 
-                video_frame, 
-                generation_config, 
-                num_patches_list=num_patches_list[:i+batch_frame], 
-                history=chat_history, 
-                return_history=False, 
-                check_answer=output_last,
-                self_check=True
+            output_perplexity = compute_avg_perplexity(
+                model, tokenizer,
+                pixel_values[:i+batch_frame, ...],
+                video_frame,
+                generation_config,
+                num_patches_list[:i+batch_frame],
+                chat_history,
+                check_answer=output_last[:min(check_len, len(output_last))],
+                self_check=True,
+                num_runs=num_runs
             )
             decode_threshold = output_perplexity
             print(f"Frame{i}-{i+batch_frame-1}:", output_last)
@@ -210,15 +231,17 @@ with torch.no_grad():
             filtered_pixel_values = pixel_values[:i + batch_frame, ...]
             filtered_num_patches_list = num_patches_list[:i + batch_frame]
             question = video_frame
-            output_perplexity, _ = model.chat(
-                tokenizer, 
-                filtered_pixel_values, 
-                question, 
-                generation_config, 
-                num_patches_list=filtered_num_patches_list, 
-                history=chat_history, 
-                return_history=False, 
-                check_answer=output_last
+            
+            output_perplexity = compute_avg_perplexity(
+                model, tokenizer,
+                filtered_pixel_values,
+                question,
+                generation_config,
+                filtered_num_patches_list,
+                chat_history,
+                check_answer=output_last[:min(check_len, len(output_last))],
+                self_check=False,
+                num_runs=num_runs
             )
             
             if output_perplexity > decode_threshold * decode_factor:
@@ -232,19 +255,18 @@ with torch.no_grad():
                     return_history=True,
                 )
 
-                decode_threshold, _ = model.chat(
-                    tokenizer, 
-                    filtered_pixel_values, 
-                    question, 
-                    generation_config, 
-                    num_patches_list=filtered_num_patches_list, 
-                    history=chat_history, 
-                    return_history=False, 
-                    check_answer=output_last,
-                    self_check=True
+                decode_threshold = compute_avg_perplexity(
+                    model, tokenizer,
+                    filtered_pixel_values,
+                    question,
+                    generation_config,
+                    filtered_num_patches_list,
+                    chat_history,
+                    check_answer=output_last[:min(check_len, len(output_last))],
+                    self_check=True,
+                    num_runs=num_runs
                 )
                 print(f"Frame{i}-{i+batch_frame-1}:", output_last)
             else:
                 chat_history[-1] = (chat_history[-1][0] + video_frame, chat_history[-1][1])
                 print(f"Slient.")
-
