@@ -21,6 +21,7 @@ from transformers import (AutoModel, GenerationConfig, LlamaForCausalLM,
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import ModelOutput, logging
+from peft import LoraConfig, get_peft_model
 
 from .configuration_livestar_chat import InternVLChatConfig
 from .modeling_livestar_vit import InternVisionModel, has_flash_attn
@@ -190,6 +191,29 @@ class InternVLChatModel(PreTrainedModel):
         self.img_context_token_id = None
         self.conv_template = get_conv_template(self.template)
         self.system_message = self.conv_template.system_message
+
+    def wrap_backbone_lora(self, r=128, lora_alpha=256, lora_dropout=0.05):
+        lora_config = LoraConfig(
+            r=r,
+            target_modules=['attn.qkv', 'attn.proj', 'mlp.fc1', 'mlp.fc2'],
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
+        )
+        self.vision_model = get_peft_model(self.vision_model, lora_config)
+        self.vision_model.print_trainable_parameters()
+
+    def wrap_llm_lora(self, r=128, lora_alpha=256, lora_dropout=0.05):
+        lora_config = LoraConfig(
+            r=r,
+            target_modules=['attention.wqkv', 'attention.wo',
+                            'feed_forward.w1', 'feed_forward.w2', 'feed_forward.w3'],
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
+            task_type='CAUSAL_LM',
+        )
+        self.language_model = get_peft_model(self.language_model, lora_config)
+        self.language_model.enable_input_require_grads()
+        self.language_model.print_trainable_parameters()
 
     def merge_tokens(self, x, target_num_token):
         r"""
