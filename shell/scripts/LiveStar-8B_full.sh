@@ -29,7 +29,7 @@ torchrun \
   --nproc_per_node=${GPUS} \
   --master_port=${MASTER_PORT} \
   livestar/train/livestar_chat_finetune.py \
-  --model_name_or_path "/mnt/workspace/xxx/InternVideo2_5_Chat_8B" \
+  --model_name_or_path "./inference" \
   --conv_style "internvl2_5" \
   --use_fast_tokenizer False \
   --output_dir ${OUTPUT_DIR} \
