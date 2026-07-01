@@ -1,7 +1,6 @@
 datasets==3.3.2
 decord==0.6.0
 deepspeed==0.14.4
-flash_attn==2.7.4.post1
 imageio==2.37.0
 opencv_python==4.11.0.86
 peft==0.10.0

@@ -44,20 +44,39 @@ git clone https://github.com/sotayang/LiveStar.git
 cd LiveStar
 ```
 
-2. Install Python dependencies (Ensure you have Python version >= 3.9 installed). For GPU support, CUDA 12.2 or compatible drivers are required.
+2. Install Python dependencies. Requirements: Python >= 3.9, and an NVIDIA GPU whose driver supports CUDA 12.x.
+
+> **Note:** `flash-attn` must be installed **after** PyTorch and needs a CUDA toolkit (`nvcc`) at build time. It is therefore installed as a separate step below and is intentionally **not** listed in `requirements.txt` (otherwise `pip install -r requirements.txt` fails with `ModuleNotFoundError: No module named 'torch'`).
+
+**Step 1 - create the environment and install PyTorch first:**
 ```bash
 conda create -n LiveStar -y python=3.9.21
 conda activate LiveStar
-conda install -y -c pytorch pytorch=2.5.1 torchvision=0.10.1
-pip install transformers==4.37.2 opencv-python==4.11.0.84 imageio==2.37.0 decord==0.6.0 gradio==4.44.1
-pip install flash-attn --no-build-isolation
+pip install torch==2.5.1 torchvision==0.20.1
 ```
-Alternative: Install via requirements.txt (**recommended**):
+
+**Step 2 - install the remaining dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
+**Step 3 - install flash-attn (requires a CUDA toolkit / `nvcc`):**
+```bash
+# If nvcc is not already on your machine, install a CUDA toolkit, e.g. via conda:
+conda install -y -c nvidia cuda-toolkit=12.4
+export CUDA_HOME=$CONDA_PREFIX   # must point to the env root, NOT targets/x86_64-linux
+
+# Build flash-attn from source. FLASH_ATTENTION_FORCE_BUILD=TRUE skips the prebuilt
+# wheel download from GitHub (needed on machines without direct GitHub access).
+# Optional: FLASH_ATTN_CUDA_ARCHS limits the build to your GPU's compute capability,
+# which cuts build time drastically (e.g. 80 for A100/A800, 90 for H100; ";"-separated
+# for multiple). Omit it to build for all archs (80;90;100;120) - much slower.
+MAX_JOBS=32 FLASH_ATTENTION_FORCE_BUILD=TRUE FLASH_ATTN_CUDA_ARCHS=80 pip install flash_attn==2.7.4.post1 --no-build-isolation
+```
+
 ### **Model Acquisition**
+
+> **Tip:** if `huggingface.co` is slow or unreachable, prefix the download commands with `HF_ENDPOINT=https://hf-mirror.com` to use the mirror.
 
 1. Download Fine-Tuned LiveStar Model (Recommended):
 
@@ -162,7 +181,7 @@ To run an inference with the LiveStar model, follow these steps:
    cd LiveStar/inference
    ```
 
-(2) Ensure that the model path in your script matches the actual path to the downloaded weights: `model_path = 'LiveStar/inference'`. To use your own video file, modify the following line: `video_path = "sample.mp4"`.
+(2) Ensure that the model path in your script matches the actual path to the downloaded weights: `model_path = './'`. The script runs on a bundled sample video by default (`video_path = "../assets/videos/HPtIGhOsViM.mp4"`); to use your own video, edit that `video_path` line in `demo.py`.
 
 (3) Execute the inference script using the following command:
    ```bash
