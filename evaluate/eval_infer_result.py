@@ -314,6 +314,6 @@ if __name__ == "__main__":
     )
     
     merge_concatenated_gt_and_prediction_texts(
-        "/your_path/matched_result.jsonl"
+        "/your_path/matched_result.jsonl",
         "/your_path/merged_result.jsonl"
     )
