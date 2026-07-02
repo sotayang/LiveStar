@@ -1,6 +1,14 @@
 # Backups
 *.bak
 
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+
 # Downloaded model weights (fetch from Hugging Face per README)
 inference/*.safetensors
 
