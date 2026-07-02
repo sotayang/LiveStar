@@ -95,19 +95,41 @@ def _load_ground_truth_segments(ground_truth_file_path: str) -> dict[str, list[t
 def match_predictions_to_gt_with_metrics(
     prediction_results_path: str,
     ground_truth_file_path: str,
-    output_path: str
+    output_path: str,
+    timing_diff_mode: str = "cumulative"
 ):
     """
     Matches prediction results with ground truth (GT) segments and computes metrics.
 
     For each GT segment, it takes the *first* prediction caption whose timestamp
-    falls within that GT segment. It also calculates time difference, redundancy, and coverage metrics.
+    falls within that GT segment (used for the caption pairing / semantic metrics).
+    It also calculates the timing difference (TimDiff), redundancy, and coverage metrics.
+
+    TimDiff (``timing_diff_mode``):
+        - ``"cumulative"`` (default): matches the paper definition, where "multiple
+          outputs are penalized by cumulative time". For each GT segment the timing
+          difference is the *sum* of ``(pred_sec - gt_start_sec)`` over **every**
+          prediction that falls inside the segment. A model that emits many redundant
+          outputs inside a segment is therefore penalized proportionally, instead of
+          only being scored on its first (earliest) output.
+        - ``"first_match"``: the legacy behavior, which only scores the first matched
+          prediction per segment (``first_matched_time - gt_start_sec``). Kept for
+          reproducibility of previously reported numbers.
+        In both modes, a segment with no matching prediction receives the maximum
+        penalty equal to the full segment length (``gt_end_sec - gt_start_sec``).
 
     Args:
         prediction_results_path (str): Path to the JSONL file containing prediction results.
         ground_truth_file_path (str): Path to the ground truth text file.
         output_path (str): Path to save the matched pairs and metrics in JSONL format.
+        timing_diff_mode (str): Either ``"cumulative"`` (paper definition) or
+            ``"first_match"`` (legacy). Defaults to ``"cumulative"``.
     """
+    if timing_diff_mode not in ("cumulative", "first_match"):
+        raise ValueError(
+            f"Unknown timing_diff_mode '{timing_diff_mode}'. "
+            "Expected 'cumulative' or 'first_match'."
+        )
     ground_truth_segments = _load_ground_truth_segments(ground_truth_file_path)
     output_data_with_metrics = []
     
@@ -155,6 +177,7 @@ def match_predictions_to_gt_with_metrics(
                 first_matched_prediction_caption = ""
                 predictions_in_segment_count = 0
                 first_matched_time_in_segment = None
+                cumulative_time_diff_in_segment = 0 # Sum of (pred_sec - gt_start_sec) over all matches
                 
                 temp_prediction_idx = prediction_idx # Use a temp index for iterating within this segment
                 while temp_prediction_idx < len(timed_predictions):
@@ -164,6 +187,7 @@ def match_predictions_to_gt_with_metrics(
                         if first_matched_time_in_segment is None: # First match in this segment
                             first_matched_time_in_segment = pred_sec
                             first_matched_prediction_caption = pred_caption # Store only the first matched caption
+                        cumulative_time_diff_in_segment += pred_sec - gt_start_sec
                         predictions_in_segment_count += 1
                         prediction_idx = temp_prediction_idx + 1 # Crucial: advance the main index
                         temp_prediction_idx += 1
@@ -174,10 +198,17 @@ def match_predictions_to_gt_with_metrics(
                         prediction_idx = temp_prediction_idx + 1
                         temp_prediction_idx += 1
                 
-                # Calculate time difference for the segment
+                # Calculate time difference (TimDiff) for the segment.
                 if first_matched_time_in_segment is not None:
-                    time_diff = first_matched_time_in_segment - gt_start_sec
+                    if timing_diff_mode == "cumulative":
+                        # Paper definition: redundant outputs within a segment are
+                        # penalized by their cumulative timing offset from the GT onset.
+                        time_diff = cumulative_time_diff_in_segment
+                    else: # "first_match" (legacy): only the earliest matched output counts
+                        time_diff = first_matched_time_in_segment - gt_start_sec
                 else:
+                    # No prediction landed in this segment: apply the maximum penalty
+                    # equal to the full segment length.
                     time_diff = gt_end_sec - gt_start_sec
                 segment_time_differences.append(time_diff)
                 
