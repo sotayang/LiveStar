@@ -8,6 +8,7 @@
 
 import re
 import warnings
+import os
 from typing import List, Optional, Tuple, Union, Callable
 
 import torch
@@ -387,6 +388,8 @@ class InternVLChatModel(PreTrainedModel):
     def streaming_infer(
             self,
             pixel_values: torch.FloatTensor,
+            visual_features: Optional[torch.FloatTensor] = None,
+            use_kvcache: bool = False,
             input_ids: torch.LongTensor = None,
             attention_mask: Optional[torch.Tensor] = None,
             position_ids: Optional[torch.LongTensor] = None,
@@ -403,7 +406,7 @@ class InternVLChatModel(PreTrainedModel):
         image_flags = image_flags.squeeze(-1)
         input_embeds = self.language_model.get_input_embeddings()(input_ids).clone()
 
-        vit_embeds = self.extract_feature(pixel_values)
+        vit_embeds = visual_features if visual_features is not None else self.extract_feature(pixel_values)
         vit_embeds = vit_embeds[image_flags == 1]
         vit_batch_size = pixel_values.shape[0]
 
@@ -426,12 +429,20 @@ class InternVLChatModel(PreTrainedModel):
 
         input_embeds = input_embeds.reshape(B, N, C)
 
+        if past_key_values is not None and use_kvcache:
+            past_len = past_key_values[0][0].shape[2]
+            input_embeds = input_embeds[:, past_len:, :]
+            if labels is not None:
+                labels = labels[:, past_len:]
+            if attention_mask is not None:
+                attention_mask = attention_mask[:, past_len:]
+
         outputs = self.language_model(
             inputs_embeds=input_embeds,
             attention_mask=attention_mask,
             position_ids=position_ids,
             past_key_values=past_key_values,
-            use_cache=use_cache,
+            use_cache=(use_cache or use_kvcache),
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
@@ -553,7 +564,7 @@ class InternVLChatModel(PreTrainedModel):
 
     def chat(self, tokenizer, pixel_values, question, generation_config, history=None, return_history=False,
              num_patches_list=None, past_key_values=None, IMG_START_TOKEN='<img>', IMG_END_TOKEN='</img>', IMG_CONTEXT_TOKEN='<IMG_CONTEXT>',
-             verbose=False, check_answer=None, self_check=False, eval=False, conversations=None, use_kvcache=False):
+             verbose=False, check_answer=None, self_check=False, eval=False, conversations=None, use_kvcache=False, visual_features=None, past_input_ids=None):
 
         if history is None and pixel_values is not None and '<image>' not in question:
             question = '<image>\n' + question
@@ -563,6 +574,8 @@ class InternVLChatModel(PreTrainedModel):
             pixel_values = torch.cat((pixel_values, last_pixel_frame), dim=0)
             last_patch_frame = num_patches_list[-1]
             num_patches_list.append(last_patch_frame)
+            if visual_features is not None:
+                visual_features = torch.cat((visual_features, visual_features[-1:]), dim=0)
 
         if num_patches_list is None:
             num_patches_list = [pixel_values.shape[0]] if pixel_values is not None else []
@@ -642,13 +655,28 @@ class InternVLChatModel(PreTrainedModel):
             answer_len = input_ids.shape[1] - len(input_ids_prefix)
             labels = torch.full_like(input_ids, -100)
             labels[:, -answer_len+4:-1] = input_ids[:, -answer_len+4:-1]
+            kv_in = None
+            if use_kvcache and past_key_values is not None and past_input_ids is not None:
+                a, b = past_input_ids[0], input_ids[0]
+                mn = min(a.shape[0], b.shape[0], past_key_values[0][0].shape[2])
+                P = 0
+                while P < mn and int(a[P]) == int(b[P]):
+                    P += 1
+                P = min(P, input_ids.shape[1] - 1)
+                if P > 0:
+                    kv_in = tuple((k[:, :, :P, :], v[:, :, :P, :]) for k, v in past_key_values)
             check_output = self.streaming_infer(
                 pixel_values=pixel_values,
+                visual_features=visual_features,
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 image_flags=torch.tensor(num_patches_list),
                 labels=labels,
+                past_key_values=kv_in,
+                use_kvcache=use_kvcache,
             )
+            if use_kvcache:
+                return torch.exp(check_output.loss).item(), (check_output.past_key_values, input_ids)
             return torch.exp(check_output.loss).item(), None
         
         else:
@@ -658,6 +686,7 @@ class InternVLChatModel(PreTrainedModel):
                 attention_mask=attention_mask,
                 past_key_values=past_key_values,
                 use_kvcache=use_kvcache,
+                visual_features=visual_features,
                 **generation_config
             )
             response = tokenizer.batch_decode(generation_output, skip_special_tokens=True)[0]

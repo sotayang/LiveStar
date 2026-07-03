@@ -1,5 +1,9 @@
 # Backups
-*.bak
+*.bak*
+
+# Python caches
+__pycache__/
+*.pyc
 
 # Downloaded model weights (fetch from Hugging Face per README)
 inference/*.safetensors
