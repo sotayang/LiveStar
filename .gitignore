@@ -11,3 +11,8 @@ inference/*.safetensors
 # Runtime / download artifacts
 inference/examples/
 inference/.cache/
+
+# Local test environment and run outputs
+.venv*/
+.pytest_cache/
+outputs/

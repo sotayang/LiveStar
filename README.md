@@ -11,7 +11,7 @@ This is the **code repository** for ***LiveStar*** (NeurIPS 2025) and its journa
 
 ## News & Updates 🚀  
 - `2026-07-02`:  
-  🔥 **LiveStarPro Released**: The journal extension **LiveStarPro** is now available ([arXiv](https://arxiv.org/abs/2606.17798)). It adds **Tree-Structured Hierarchical Memory (TSHM)** for long-horizon streams and a **Streaming KV Cache** for faster inference — both at inference time on the same `LiveStar-8B` weights. Run it with the `--pro` flag (see [LiveStarPro](#livestarpro-)).
+  🔥 **LiveStarPro Released**: The journal extension **LiveStarPro** is now available ([arXiv](https://arxiv.org/abs/2606.17798)). It adds **Tree-Structured Hierarchical Memory (TSHM)** for long-horizon streams and a **Streaming KV Cache** for faster inference — both at inference time on the same `LiveStar-8B` weights. The original release remains available with `--method legacy --pro`; the current default is the revised implementation (see [LiveStarPro](#livestarpro-)).
 - `2025-09-19`:  
   🔥 **Paper Accepted**: Our work has been accepted to NeurIPS 2025! The [arXiv](https://arxiv.org/abs/2511.05299) version is now available — try our LiveStar model for streaming inference today!
 - `2025-05-27`:  
@@ -172,7 +172,7 @@ python utils/extract_video_frame.py --data_dir ./videos --output_dir ./video_fra
 
 After completing these steps, you should see the extracted video and frame files in the OmniStar-RNG directory.
 
-## **Inference**
+## **LiveStar Legacy Demos**
 
 ![SVeD](./assets/images/SVeD.png)
 
@@ -197,48 +197,63 @@ To run an inference with the LiveStar model, follow these steps:
 
 ## **LiveStarPro** 🌟
 
-**LiveStarPro** is the journal extension of LiveStar for **long-horizon** online video understanding. It keeps LiveStar's SVeD inference and SCAM training unchanged and adds two inference-time modules — no retraining is needed, the **same** `LiveStar-8B` weights are used:
+**LiveStarPro** extends LiveStar with a short-term Peak-End working memory
+and a long-term recursive event tree. The **revised implementation is now the
+default** of `inference/streaming_infer.py`; the original implementation is
+preserved and explicitly selectable.
 
-- **Tree-Structured Hierarchical Memory (TSHM)** — a two-tier memory for effectively unbounded streams:
-  - *Short-Term Working Memory*: Peak-End compression keeps salient keyframes (low-perplexity "peaks") plus each clip's summary caption, bounding the active context regardless of stream length.
-  - *Long-Term Retrieval Memory*: evicted events are organized into a **Recursive Event Tree** (semantically similar events are attached as children, with momentum-updated parent embeddings). When a response is triggered, a **hierarchical beam-descent** retrieval re-injects relevant historical event chains, with a temporal gate so only genuinely distant events are recalled.
-- **Streaming KV Cache** — caches per-frame visual features and reuses the attention key/value of the stable context prefix across streaming steps, avoiding redundant recomputation of history.
+The revised path uses frozen OpenCLIP caption/peak-frame embeddings, updates every
+ancestor on insertion, searches mixed-depth completed leaves with a four-node
+active beam, and injects retrieved visual events and selected ancestors under
+explicit event and token budgets. It encodes frames on arrival and reports timing
+that includes visual encoding and index maintenance. See the
+[implementation and timing contract](docs/revised_tshm.md).
 
 ### Highlights 📈
 
-As reported in the paper, LiveStarPro sets a new state of the art for online video understanding:
+The following are paper-reported results. They are not new measurements from the revised code release:
 
 - **+28.9% semantic correctness (SemCor)** and **−18.2% timing difference (TimDiff)** relative to prior online Video-LLMs — up from LiveStar's +19.5% — together with **+16.1% FPS**.
 - **1.58× inference speedup** from the Streaming KV Cache versus the same model without caching, sustaining ~3 FPS on hour-long streams.
 - **Long-horizon recall**: on the long (>30 min) memory-span bucket, the Recursive Event Tree reaches **37.2%** recall versus **21.3%** for a flat retrieval bank and near-chance for sliding-window baselines, while degrading far more gracefully as the memory span grows.
 
-### Running LiveStar vs. LiveStarPro
-
-Both modes share a single entry point, `inference/streaming_infer.py`, so a controlled comparison is one flag away:
+### Running the revised and legacy methods
 
 ```bash
-cd LiveStar/inference
+# From the repository root, after installing the existing dependencies and weights:
+pip install -r requirements-revised.txt
 
-# LiveStar (base): SVeD + short-term Peak-End memory, no long-term retrieval
-python streaming_infer.py --video ../assets/videos/HPtIGhOsViM.mp4
+# Default: revised LiveStarPro (alpha=1.03, beam=4, bounded multimodal memory)
+python inference/streaming_infer.py --video assets/videos/HPtIGhOsViM.mp4 \
+  --num-frames 64 --output outputs/revised.json
 
-# LiveStarPro: adds the Recursive Event Tree, gated retrieval, and streaming KV cache
-python streaming_infer.py --video ../assets/videos/HPtIGhOsViM.mp4 --pro
+# Original LiveStarPro, preserved with its original defaults:
+python inference/streaming_infer.py --method legacy --pro --model-path inference \
+  --video assets/videos/HPtIGhOsViM.mp4
+
+# Original LiveStar base, without long-term retrieval:
+python inference/streaming_infer.py --method legacy --model-path inference \
+  --video assets/videos/HPtIGhOsViM.mp4
 ```
 
-Common flags (run `python streaming_infer.py -h` for the full list):
+| Revised flag | Default | Meaning |
+|---|---|---|
+| `--method` | `revised` | Select `revised` or the preserved `legacy` method |
+| `--alpha` | 1.03 | SVeD trigger threshold multiplier |
+| `--sigma` / `--beta` | 0.75 / 0.3 | Inclusive tree attach threshold / ancestor momentum |
+| `--beam-k` | 4 | Active internal beam and maximum matched leaves |
+| `--max-events` / `--memory-tokens` | 8 / 1,024 | Retrieved-event and actual generator-input token caps |
+| `--context-window` / `--max-new-tokens` | 8,192 / 128 | Total window including reserved output |
+| `--queries` | none | JSON file of explicit, timestamped questions |
+| `--no-kv` | off | Disable verification-prefix KV reuse |
+| `--no-retrieval` | off | Disable long-term indexing and retrieval |
+| `--num-frames` | 0 | Process the whole video; positive values limit the sampled frames |
+| `--output` | `outputs/revised_run.json` | Configuration, outputs, gate decisions and timings |
 
-| Flag | Default | Meaning |
-|------|---------|---------|
-| `--pro` | off | Enable the full LiveStarPro stack (TSHM tree + gated retrieval + KV cache) |
-| `--l-max` | 160 | Active-context token budget that triggers Peak-End compression |
-| `--alpha` | 1.06 | SVeD response-silence sensitivity (larger = fewer responses) |
-| `--sigma` / `--beta` | 0.75 / 0.3 | Event-tree attach threshold / parent-embedding momentum |
-| `--recall-min-gap` | 8 (with `--pro`) | Only recall events at least this many frames in the past |
-| `--kv` | on with `--pro` | Reuse the verification-path streaming KV cache |
-| `--trace` | off | Print per-frame SVeD / memory / retrieval decisions |
-
-> `demo.py` remains the reference LiveStar inference script. `streaming_infer.py` reproduces LiveStar behavior without `--pro`, and layers LiveStarPro on top with `--pro`, keeping the harness identical for a fair comparison.
+`--pro` is accepted in revised mode for command compatibility but is not required.
+`demo.py`, `demo_ui.py`, and the existing legacy ablation scripts remain available.
+See [full usage and validation boundaries](docs/revised_tshm.md) before comparing
+new measurements with paper results.
 
 ## **Training**
 

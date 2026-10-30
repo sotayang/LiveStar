@@ -6,7 +6,7 @@ Share ONE fixed vit_cache across both runs so per-frame features are identical
 from types import SimpleNamespace
 import torch
 from transformers import AutoModel, AutoTokenizer
-from streaming_infer import load_video, StreamingSession
+from streaming_infer_legacy import load_video, StreamingSession
 
 
 def args(**kw):

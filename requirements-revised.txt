@@ -1,0 +1,2 @@
+# Install after requirements.txt. Pinned indexing implementation for revised TSHM.
+open_clip_torch==2.24.0

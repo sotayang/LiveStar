@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-from streaming_infer import load_video, StreamingSession
+from streaming_infer_legacy import load_video, StreamingSession
 from tshm import embed_text
 
 
